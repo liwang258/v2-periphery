@@ -246,12 +246,12 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
             );
         }
     }
-//交易类型:token0换token1
+   //交易类型:token0换token1，能交换到的数量低于预期的最小数量则失败
     function swapExactTokensForTokens(
-        uint amountIn,
-        uint amountOutMin,
-        address[] calldata path,
-        address to,
+        uint amountIn,//想要出售的token数量
+        uint amountOutMin,//能接受的最少数量
+        address[] calldata path,//交易路径
+        address to,//交易达成后接收目标token的地址
         uint deadline
     ) external virtual override ensure(deadline) returns (uint[] memory amounts) {
         //计算交易对能换到的数量(已经扣除0.3%)的手续费
