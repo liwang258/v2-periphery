@@ -257,6 +257,8 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
         //计算交易对能换到的数量(已经扣除0.3%)的手续费
         amounts = UniswapV2Library.getAmountsOut(factory, amountIn, path);
         require(amounts[amounts.length - 1] >= amountOutMin, 'UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT');
+         //将token0从msg.sender地址专一amount0数量到uniswap的交易对合约，因为path0是用户想要卖出的
+         //path(n-1)是用户想要购买的token
         TransferHelper.safeTransferFrom(
             path[0],
             msg.sender,
