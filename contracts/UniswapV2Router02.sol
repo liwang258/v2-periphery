@@ -246,7 +246,7 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
             );
         }
     }
-
+//交易类型:token0换token1
     function swapExactTokensForTokens(
         uint amountIn,
         uint amountOutMin,
@@ -254,6 +254,7 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
         address to,
         uint deadline
     ) external virtual override ensure(deadline) returns (uint[] memory amounts) {
+        //计算交易对能换到的数量(已经扣除0.3%)的手续费
         amounts = UniswapV2Library.getAmountsOut(factory, amountIn, path);
         require(amounts[amounts.length - 1] >= amountOutMin, 'UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT');
         TransferHelper.safeTransferFrom(
@@ -262,6 +263,7 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
             UniswapV2Library.pairFor(factory, path[0], path[1]),
             amounts[0]
         );
+         //对交易路径上的token执行交换动作
         _swap(amounts, path, to);
     }
 
