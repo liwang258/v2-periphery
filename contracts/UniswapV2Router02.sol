@@ -258,14 +258,16 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
         amounts = UniswapV2Library.getAmountsOut(factory, amountIn, path);
         require(amounts[amounts.length - 1] >= amountOutMin, 'UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT');
          //将token0从msg.sender地址专一amount0数量到uniswap的交易对合约，因为path0是用户想要卖出的
-         //path(n-1)是用户想要购买的token
+         //path(n-1)是用户想要购买的token 先将用户要卖的token收进来，后续才能再内部各个交易对之间进行交换
         TransferHelper.safeTransferFrom(
             path[0],
             msg.sender,
             UniswapV2Library.pairFor(factory, path[0], path[1]),
             amounts[0]
         );
-         //对交易路径上的token执行交换动作
+         //对交易路径上的token执行交换动作(可能是多跳交易 如用户想要tokenA换tokenD,但是没有直接tokenA到tokenD的交易对
+         //这个时候就会是tokenA先换tokenB,tokenB换tokenC,最后是tokenC换tokenD
+         //如果想要用tokenA换tokenC,tokenA/tokenC交易对流动性不足，uniswap可能会拆成tokenA/tokenB tokenB/tokenC这       种多跳链路完成交易，不会拆成单跳(直接交易一部分)+多跳(剩下的部分)的混合模式
         _swap(amounts, path, to);
     }
 
