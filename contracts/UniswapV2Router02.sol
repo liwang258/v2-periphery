@@ -29,10 +29,12 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
     receive() external payable {
         assert(msg.sender == WETH); // only accept ETH via fallback from the WETH contract
     }
-    //LP添加流动性试算(针对的是2个token)，给用户计算并显示出符合汇率不变的最优tokenA和tokenB的数量
-    //注意:K不变指的是交易的时候(即换币)的时候不变，但是增加流动性和减少流动性的时候K会相应增加和减少
-    //为保证里面的token汇率稳定，要求增加流动性时2种token需要按照比例添加
-    // **** ADD LIQUIDITY ****
+
+    /**
+     * LP添加流动性试算(针对的是2个token)，计算并显示出符合汇率不变的最优tokenA和tokenB的数量
+     * 注意:K不变指的是交易的时候(即换币)的时候不变，但是增加流动性和减少流动性的时候K会相应增加和减少
+     * 为保证里面的token汇率稳定，要求增加流动性时2种token需要按照比例添加
+     */
     function _addLiquidity(
         address tokenA,
         address tokenB,
@@ -65,6 +67,20 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
         }
     }
 
+    /**
+     * 添加流动性到指定的交易对合约中
+     * @param tokenA 交易对中的第一个代币地址
+     * @param tokenB 交易对中的第二个代币地址
+     * @param amountADesired 用户希望添加的第一个代币的数量
+     * @param amountBDesired 用户希望添加的第二个代币的数量
+     * @param amountAMin 用户愿意接受的第一个代币的最小数量
+     * @param amountBMin 用户愿意接受的第二个代币的最小数量
+     * @param to 流动性代币接收地址，表示添加流动性后，铸造的流动性代币将发送到该地址
+     * @param deadline 交易截止时间戳，超过该时间交易将失败
+     * @return amountA 实际添加的第一个代币的数量
+     * @return amountB 实际添加的第二个代币的数量
+     * @return liquidity 铸造的流动性代币数量
+     */
     function addLiquidity(
         address tokenA,
         address tokenB,
@@ -77,8 +93,11 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
     ) external virtual override ensure(deadline) returns (uint amountA, uint amountB, uint liquidity) {
         (amountA, amountB) = _addLiquidity(tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin);
         address pair = UniswapV2Library.pairFor(factory, tokenA, tokenB);
+        //这一步把用户的tokenA和tokenB转移到交易对合约中
         TransferHelper.safeTransferFrom(tokenA, msg.sender, pair, amountA);
+        //这一步把用户的tokenA和tokenB转移到交易对合约中
         TransferHelper.safeTransferFrom(tokenB, msg.sender, pair, amountB);
+        //调用交易对合约的mint方法，铸造流动性代币，并发送到用户指定的地址
         liquidity = IUniswapV2Pair(pair).mint(to);
     }
 
@@ -251,31 +270,33 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
             );
         }
     }
-   //交易类型:token0换token1，能交换到的数量低于预期的最小数量则失败
+
+    //交易类型:token0换token1，能交换到的数量低于预期的最小数量则失败
     function swapExactTokensForTokens(
-        uint amountIn,//想要出售的token数量
-        uint amountOutMin,//能接受的最少数量
-        address[] calldata path,//交易路径
-        address to,//交易达成后接收目标token的地址
+        uint amountIn, //想要出售的token数量
+        uint amountOutMin, //能接受的最少数量
+        address[] calldata path, //交易路径
+        address to, //交易达成后接收目标token的地址
         uint deadline
     ) external virtual override ensure(deadline) returns (uint[] memory amounts) {
         //计算交易对能换到的数量(已经扣除0.3%)的手续费
         amounts = UniswapV2Library.getAmountsOut(factory, amountIn, path);
         require(amounts[amounts.length - 1] >= amountOutMin, 'UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT');
-         //将token0从msg.sender地址专一amount0数量到uniswap的交易对合约，因为path0是用户想要卖出的
-         //path(n-1)是用户想要购买的token 先将用户要卖的token收进来，后续才能再内部各个交易对之间进行交换
+        //将token0从msg.sender地址专一amount0数量到uniswap的交易对合约，因为path0是用户想要卖出的
+        //path(n-1)是用户想要购买的token 先将用户要卖的token收进来，后续才能再内部各个交易对之间进行交换
         TransferHelper.safeTransferFrom(
             path[0],
             msg.sender,
             UniswapV2Library.pairFor(factory, path[0], path[1]),
             amounts[0]
         );
-         //对交易路径上的token执行交换动作(可能是多跳交易 如用户想要tokenA换tokenD,但是没有直接tokenA到tokenD的交易对
-         //这个时候就会是tokenA先换tokenB,tokenB换tokenC,最后是tokenC换tokenD
-         //如果想要用tokenA换tokenC,tokenA/tokenC交易对流动性不足，uniswap可能会拆成tokenA/tokenB tokenB/tokenC这       种多跳链路完成交易，不会拆成单跳(直接交易一部分)+多跳(剩下的部分)的混合模式
+        //对交易路径上的token执行交换动作(可能是多跳交易 如用户想要tokenA换tokenD,但是没有直接tokenA到tokenD的交易对
+        //这个时候就会是tokenA先换tokenB,tokenB换tokenC,最后是tokenC换tokenD
+        //如果想要用tokenA换tokenC,tokenA/tokenC交易对流动性不足，uniswap可能会拆成tokenA/tokenB tokenB/tokenC这       种多跳链路完成交易，不会拆成单跳(直接交易一部分)+多跳(剩下的部分)的混合模式
         _swap(amounts, path, to);
     }
-   //获取指定数量得token,并指定所能接受的最大支付token数量
+
+    //获取指定数量得token,并指定所能接受的最大支付token数量
     function swapTokensForExactTokens(
         uint amountOut,
         uint amountInMax,
@@ -320,6 +341,7 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
         assert(IWETH(WETH).transfer(UniswapV2Library.pairFor(factory, path[0], path[1]), amounts[0]));
         _swap(amounts, path, to);
     }
+
     //用token换取指定数量的ETH,并指定所能接受的最大支付token
     function swapTokensForExactETH(
         uint amountOut,
@@ -341,10 +363,10 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
         );
         //按照多跳路径进行token交换
         _swap(amounts, path, address(this));
-       //这里IWETH合约中的ETH会转给当前合约，并将IWETH标记的代币数量销毁对应数量
+        //这里IWETH合约中的ETH会转给当前合约，并将IWETH标记的代币数量销毁对应数量
         IWETH(WETH).withdraw(amounts[amounts.length - 1]);
-       //将当前合约的ETH(上一步转移过来的)转给用户
-        TransferHelper.safeTransferETH(to, amounts[amounts.length - 1]); 
+        //将当前合约的ETH(上一步转移过来的)转给用户
+        TransferHelper.safeTransferETH(to, amounts[amounts.length - 1]);
     }
 
     function swapExactTokensForETH(
