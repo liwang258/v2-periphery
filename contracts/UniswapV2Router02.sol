@@ -270,7 +270,7 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
          //如果想要用tokenA换tokenC,tokenA/tokenC交易对流动性不足，uniswap可能会拆成tokenA/tokenB tokenB/tokenC这       种多跳链路完成交易，不会拆成单跳(直接交易一部分)+多跳(剩下的部分)的混合模式
         _swap(amounts, path, to);
     }
-
+   //获取指定数量得token,并指定所能接受的最大支付token数量
     function swapTokensForExactTokens(
         uint amountOut,
         uint amountInMax,
@@ -315,7 +315,7 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
         assert(IWETH(WETH).transfer(UniswapV2Library.pairFor(factory, path[0], path[1]), amounts[0]));
         _swap(amounts, path, to);
     }
-
+    //用token换取指定数量的ETH,并指定所能接受的最大支付token
     function swapTokensForExactETH(
         uint amountOut,
         uint amountInMax,
@@ -324,17 +324,22 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
         uint deadline
     ) external virtual override ensure(deadline) returns (uint[] memory amounts) {
         require(path[path.length - 1] == WETH, 'UniswapV2Router: INVALID_PATH');
+        //这里计算多跳每一个转换路径下需要支付的对应token数量
         amounts = UniswapV2Library.getAmountsIn(factory, amountOut, path);
         require(amounts[0] <= amountInMax, 'UniswapV2Router: EXCESSIVE_INPUT_AMOUNT');
+        //先把用户的第一个token转移到第一个交易对合约
         TransferHelper.safeTransferFrom(
             path[0],
             msg.sender,
             UniswapV2Library.pairFor(factory, path[0], path[1]),
             amounts[0]
         );
+        //按照多跳路径进行token交换
         _swap(amounts, path, address(this));
+       //这里IWETH合约中的ETH会转给当前合约，并将IWETH标记的代币数量销毁对应数量
         IWETH(WETH).withdraw(amounts[amounts.length - 1]);
-        TransferHelper.safeTransferETH(to, amounts[amounts.length - 1]);
+       //将当前合约的ETH(上一步转移过来的)转给用户
+        TransferHelper.safeTransferETH(to, amounts[amounts.length - 1]); 
     }
 
     function swapExactTokensForETH(
