@@ -90,7 +90,7 @@ library UniswapV2Library {
         //为满足恒定乘积公式：amountOut=(amountIn*997*reserveOut)/(reserveIn*1000 + amountIn*997)
         amountOut = numerator / denominator;
     }
-
+    // 给定要买的token数量，根据恒定乘积公式计算需要支付的token数量是多少
     // given an output amount of an asset and pair reserves, returns a required input amount of the other asset
     function getAmountIn(uint amountOut, uint reserveIn, uint reserveOut) internal pure returns (uint amountIn) {
         require(amountOut > 0, 'UniswapV2Library: INSUFFICIENT_OUTPUT_AMOUNT');
