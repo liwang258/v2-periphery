@@ -29,7 +29,9 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
     receive() external payable {
         assert(msg.sender == WETH); // only accept ETH via fallback from the WETH contract
     }
-
+    //LP添加流动性试算(针对的是2个token)，给用户计算并显示出符合汇率不变的最优tokenA和tokenB的数量
+    //注意:K不变指的是交易的时候(即换币)的时候不变，但是增加流动性和减少流动性的时候K会相应增加和减少
+    //为保证里面的token汇率稳定，要求增加流动性时2种token需要按照比例添加
     // **** ADD LIQUIDITY ****
     function _addLiquidity(
         address tokenA,
@@ -39,14 +41,17 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
         uint amountAMin,
         uint amountBMin
     ) internal virtual returns (uint amountA, uint amountB) {
+        //首次添加，则调用core工程中的新建交易对合约
         // create the pair if it doesn't exist yet
         if (IUniswapV2Factory(factory).getPair(tokenA, tokenB) == address(0)) {
             IUniswapV2Factory(factory).createPair(tokenA, tokenB);
         }
+        //获取这个交易对当前的储备量
         (uint reserveA, uint reserveB) = UniswapV2Library.getReserves(factory, tokenA, tokenB);
         if (reserveA == 0 && reserveB == 0) {
             (amountA, amountB) = (amountADesired, amountBDesired);
         } else {
+            //这里根据输入的tokenA的数量 推算需要tokenB的数量
             uint amountBOptimal = UniswapV2Library.quote(amountADesired, reserveA, reserveB);
             if (amountBOptimal <= amountBDesired) {
                 require(amountBOptimal >= amountBMin, 'UniswapV2Router: INSUFFICIENT_B_AMOUNT');
