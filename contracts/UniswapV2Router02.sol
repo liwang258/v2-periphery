@@ -109,6 +109,7 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
         address to,
         uint deadline
     ) external payable virtual override ensure(deadline) returns (uint amountToken, uint amountETH, uint liquidity) {
+        //扣除手续费后计算出最优的添加数量
         (amountToken, amountETH) = _addLiquidity(
             token,
             WETH,
@@ -121,7 +122,9 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
         TransferHelper.safeTransferFrom(token, msg.sender, pair, amountToken);
         IWETH(WETH).deposit{value: amountETH}();
         assert(IWETH(WETH).transfer(pair, amountETH));
+        //调用core 中交易对合约中的mint增加流动性
         liquidity = IUniswapV2Pair(pair).mint(to);
+        //因为最优数量可能比用户输入的少，因此需要对用户多余的数量进行退款
         // refund dust eth, if any
         if (msg.value > amountETH) TransferHelper.safeTransferETH(msg.sender, msg.value - amountETH);
     }
@@ -136,6 +139,7 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
         address to,
         uint deadline
     ) public virtual override ensure(deadline) returns (uint amountA, uint amountB) {
+
         address pair = UniswapV2Library.pairFor(factory, tokenA, tokenB);
         IUniswapV2Pair(pair).transferFrom(msg.sender, pair, liquidity); // send liquidity to pair
         (uint amount0, uint amount1) = IUniswapV2Pair(pair).burn(to);
