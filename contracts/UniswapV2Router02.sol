@@ -141,6 +141,7 @@ contract UniswapV2Router02 is IUniswapV2Router02 {
     ) public virtual override ensure(deadline) returns (uint amountA, uint amountB) {
 
         address pair = UniswapV2Library.pairFor(factory, tokenA, tokenB);
+        //移除流动性首先要将用户持有的LP份额收回(交易对合约)，下一步burn方法根据收到的token数量移除流动性
         IUniswapV2Pair(pair).transferFrom(msg.sender, pair, liquidity); // send liquidity to pair
         (uint amount0, uint amount1) = IUniswapV2Pair(pair).burn(to);
         (address token0, ) = UniswapV2Library.sortTokens(tokenA, tokenB);
