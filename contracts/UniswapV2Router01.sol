@@ -26,7 +26,7 @@ contract UniswapV2Router01 is IUniswapV2Router01 {
         assert(msg.sender == WETH); // only accept ETH via fallback from the WETH contract
     }
 
-    // **** ADD LIQUIDITY ****
+    // **** 检验添加流动性时输入的数量是否符合恒定乘积要求 返回最优数量****
     function _addLiquidity(
         address tokenA,
         address tokenB,
@@ -35,14 +35,16 @@ contract UniswapV2Router01 is IUniswapV2Router01 {
         uint amountAMin,
         uint amountBMin
     ) private returns (uint amountA, uint amountB) {
-        // create the pair if it doesn't exist yet
+        // 首次添加则创建交易对合约
         if (IUniswapV2Factory(factory).getPair(tokenA, tokenB) == address(0)) {
             IUniswapV2Factory(factory).createPair(tokenA, tokenB);
         }
+        //获取当前的储备量
         (uint reserveA, uint reserveB) = UniswapV2Library.getReserves(factory, tokenA, tokenB);
         if (reserveA == 0 && reserveB == 0) {
             (amountA, amountB) = (amountADesired, amountBDesired);
         } else {
+            //计算tokenA在新增amountADesired的情况下  需要tokenB添加多少
             uint amountBOptimal = UniswapV2Library.quote(amountADesired, reserveA, reserveB);
             if (amountBOptimal <= amountBDesired) {
                 require(amountBOptimal >= amountBMin, 'UniswapV2Router: INSUFFICIENT_B_AMOUNT');
@@ -65,10 +67,13 @@ contract UniswapV2Router01 is IUniswapV2Router01 {
         address to,
         uint deadline
     ) external override ensure(deadline) returns (uint amountA, uint amountB, uint liquidity) {
+        //检验数量是否符合恒定乘积比例  获取最优数量
         (amountA, amountB) = _addLiquidity(tokenA, tokenB, amountADesired, amountBDesired, amountAMin, amountBMin);
         address pair = UniswapV2Library.pairFor(factory, tokenA, tokenB);
+        // 将用户tokenA和tokenB从用户地址转移到交易对合约中
         TransferHelper.safeTransferFrom(tokenA, msg.sender, pair, amountA);
         TransferHelper.safeTransferFrom(tokenB, msg.sender, pair, amountB);
+        //给to地址发放atoken  并返回本次添加的流动性
         liquidity = IUniswapV2Pair(pair).mint(to);
     }
     function addLiquidityETH(
